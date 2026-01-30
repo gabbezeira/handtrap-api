@@ -5,7 +5,7 @@ export class GeminiService {
 	private backupAI: GoogleGenerativeAI | null = null;
 	private primaryModel: any;
 	private backupModel: any | null = null;
-	private readonly TIMEOUT_MS = 30000;
+	private readonly TIMEOUT_MS = 60000;
 
 	constructor() {
 		const primaryKey = process.env.GEMINI_API_KEY;
