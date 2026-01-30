@@ -12,7 +12,7 @@ const app = express();
 app.use(cors({
   origin: [
     'https://handtrap.vercel.app',
-    'http://localhost:5173',
+    'https://handtrap.xyz',
     'http://localhost:3000'
   ],
   credentials: true
