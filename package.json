@@ -6,7 +6,8 @@
   "scripts": {
     "start": "ts-node src/index.ts",
     "dev": "nodemon src/index.ts",
-    "update-cards": "ts-node src/scripts/downloadCards.ts"
+    "update-database": "node ../update_database.js",
+    "download-images": "ts-node src/scripts/downloadImages.ts"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
