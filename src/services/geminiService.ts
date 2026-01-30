@@ -1,84 +1,98 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
 export class GeminiService {
-  private primaryAI: GoogleGenerativeAI;
-  private backupAI: GoogleGenerativeAI | null = null;
-  private primaryModel: any;
-  private backupModel: any | null = null;
-  private readonly TIMEOUT_MS = 30000;
+	private primaryAI: GoogleGenerativeAI;
+	private backupAI: GoogleGenerativeAI | null = null;
+	private primaryModel: any;
+	private backupModel: any | null = null;
+	private readonly TIMEOUT_MS = 30000;
 
-  constructor() {
-    const primaryKey = process.env.GEMINI_API_KEY;
-    if (!primaryKey) throw new Error("GEMINI_API_KEY is missing");
-    
-    this.primaryAI = new GoogleGenerativeAI(primaryKey);
-    this.primaryModel = this.primaryAI.getGenerativeModel({ model: "gemini-3-flash-preview" });
+	constructor() {
+		const primaryKey = process.env.GEMINI_API_KEY;
+		if (!primaryKey) throw new Error("GEMINI_API_KEY is missing");
 
-    const backupKey = process.env.GEMINI_API_KEY_BACKUP;
-    if (backupKey) {
-      console.log("✅ Backup Gemini API configured");
-      this.backupAI = new GoogleGenerativeAI(backupKey);
-      this.backupModel = this.backupAI.getGenerativeModel({ model: "gemini-2.5-pro" });
-    } else {
-      console.warn("⚠️ No backup API key configured. Fallback disabled.");
-    }
-  }
+		this.primaryAI = new GoogleGenerativeAI(primaryKey);
+		this.primaryModel = this.primaryAI.getGenerativeModel({
+			model: "gemini-3-pro-preview",
+		});
 
-  private async callWithFallback<T>(
-    operation: (model: any) => Promise<T>,
-    operationName: string
-  ): Promise<T> {
-    try {
-      console.log(`🔵 Calling primary Gemini API for ${operationName}...`);
-      const result = await this.withTimeout(
-        operation(this.primaryModel),
-        this.TIMEOUT_MS,
-        `Primary API timeout for ${operationName}`
-      );
-      console.log(`✅ Primary API succeeded for ${operationName}`);
-      return result;
-    } catch (primaryError: any) {
-      console.error(`❌ Primary API failed for ${operationName}:`, primaryError.message);
+		const backupKey = process.env.GEMINI_API_KEY_BACKUP;
+		if (backupKey) {
+			console.log("✅ Backup Gemini API configured");
+			this.backupAI = new GoogleGenerativeAI(backupKey);
+			this.backupModel = this.backupAI.getGenerativeModel({
+				model: "gemini-3-pro-preview",
+			});
+		} else {
+			console.warn("⚠️ No backup API key configured. Fallback disabled.");
+		}
+	}
 
-      if (!this.backupModel) {
-        console.error("❌ No backup API available. Failing.");
-        throw primaryError;
-      }
+	private async callWithFallback<T>(
+		operation: (model: any) => Promise<T>,
+		operationName: string,
+	): Promise<T> {
+		try {
+			console.log(`🔵 Calling primary Gemini API for ${operationName}...`);
+			const result = await this.withTimeout(
+				operation(this.primaryModel),
+				this.TIMEOUT_MS,
+				`Primary API timeout for ${operationName}`,
+			);
+			console.log(`✅ Primary API succeeded for ${operationName}`);
+			return result;
+		} catch (primaryError: any) {
+			console.error(
+				`❌ Primary API failed for ${operationName}:`,
+				primaryError.message,
+			);
 
-      try {
-        console.log(`🟡 Trying backup Gemini API for ${operationName}...`);
-        const result = await this.withTimeout(
-          operation(this.backupModel),
-          this.TIMEOUT_MS,
-          `Backup API timeout for ${operationName}`
-        );
-        console.log(`✅ Backup API succeeded for ${operationName}`);
-        return result;
-      } catch (backupError: any) {
-        console.error(`❌ Backup API also failed for ${operationName}:`, backupError.message);
-        throw backupError;
-      }
-    }
-  }
+			if (!this.backupModel) {
+				console.error("❌ No backup API available. Failing.");
+				throw primaryError;
+			}
 
-  private withTimeout<T>(promise: Promise<T>, timeoutMs: number, errorMessage: string): Promise<T> {
-    return Promise.race([
-      promise,
-      new Promise<T>((_, reject) =>
-        setTimeout(() => reject(new Error(errorMessage)), timeoutMs)
-      ),
-    ]);
-  }
+			try {
+				console.log(`🟡 Trying backup Gemini API for ${operationName}...`);
+				const result = await this.withTimeout(
+					operation(this.backupModel),
+					this.TIMEOUT_MS,
+					`Backup API timeout for ${operationName}`,
+				);
+				console.log(`✅ Backup API succeeded for ${operationName}`);
+				return result;
+			} catch (backupError: any) {
+				console.error(
+					`❌ Backup API also failed for ${operationName}:`,
+					backupError.message,
+				);
+				throw backupError;
+			}
+		}
+	}
 
-  async analyzeDeck(deckList: string[]) {
-    const prompt = `
+	private withTimeout<T>(
+		promise: Promise<T>,
+		timeoutMs: number,
+		errorMessage: string,
+	): Promise<T> {
+		return Promise.race([
+			promise,
+			new Promise<T>((_, reject) =>
+				setTimeout(() => reject(new Error(errorMessage)), timeoutMs),
+			),
+		]);
+	}
+
+	async analyzeDeck(deckList: string[]) {
+		const prompt = `
     ATUE COMO: Um Campeão Mundial de Yu-Gi-Oh! Master Duel e Juiz Oficial (Judge).
     CONTEXTO: Formato Master Duel (Best of 1). Banlist atualizada.
     
     TAREFA: Analise profundamente a lista de deck fornecida (Main Deck + Extra Deck).
     
     LISTA DO DECK (Total de Cartas na lista abaixo):
-    ${deckList.join(', ')}
+    ${deckList.join(", ")}
 
     DIRETRIZES DE ANÁLISE:
     1. SEJA RUTHLESS (IMPLACÁVEL): Compare este deck com os Tier 0/1 atuais (Maliss, Tenpai Dragon, Snake-Eye, Yubel). Se o deck for fraco contra eles, DÊ NOTA BAIXA. Não seja gentil.
@@ -146,16 +160,16 @@ export class GeminiService {
     }
     `;
 
-    const result = await this.callWithFallback(
-      async (model) => await model.generateContent(prompt),
-      "analyzeDeck"
-    );
+		const result = await this.callWithFallback(
+			async (model) => await model.generateContent(prompt),
+			"analyzeDeck",
+		);
 
-    return this.cleanAndParseJSON(result.response.text());
-  }
+		return this.cleanAndParseJSON(result.response.text());
+	}
 
-  async analyzeCard(cardName: string) {
-    const prompt = `
+	async analyzeCard(cardName: string) {
+		const prompt = `
     Como campeão mundial de Yu-Gi-Oh, analise a carta "${cardName}".
     Retorne APENAS JSON válido:
     {
@@ -167,21 +181,24 @@ export class GeminiService {
     }
     `;
 
-    const result = await this.callWithFallback(
-      async (model) => await model.generateContent(prompt),
-      "analyzeCard"
-    );
+		const result = await this.callWithFallback(
+			async (model) => await model.generateContent(prompt),
+			"analyzeCard",
+		);
 
-    return this.cleanAndParseJSON(result.response.text());
-  }
+		return this.cleanAndParseJSON(result.response.text());
+	}
 
-  private cleanAndParseJSON(text: string): any {
-    try {
-      const clean = text.replace(/```json/g, '').replace(/```/g, '').trim();
-      return JSON.parse(clean);
-    } catch (error) {
-        console.error("JSON Parse Error. Raw text:", text);
-        throw new Error("Falha ao processar resposta da IA");
-    }
-  }
+	private cleanAndParseJSON(text: string): any {
+		try {
+			const clean = text
+				.replace(/```json/g, "")
+				.replace(/```/g, "")
+				.trim();
+			return JSON.parse(clean);
+		} catch (_error) {
+			console.error("JSON Parse Error. Raw text:", text);
+			throw new Error("Falha ao processar resposta da IA");
+		}
+	}
 }
