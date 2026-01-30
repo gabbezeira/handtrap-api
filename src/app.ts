@@ -26,7 +26,7 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date() });
 });
 
-app.post('/api/analyze', analyzeDeck);
-app.post('/api/analyze-card', analyzeCard);
+app.post('/analyze', analyzeDeck);
+app.post('/analyze-card', analyzeCard);
 
 export default app;
