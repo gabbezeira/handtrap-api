@@ -5,36 +5,30 @@ export class GeminiService {
   private backupAI: GoogleGenerativeAI | null = null;
   private primaryModel: any;
   private backupModel: any | null = null;
-  private readonly TIMEOUT_MS = 30000; // 30 seconds
+  private readonly TIMEOUT_MS = 30000;
 
   constructor() {
-    // Primary API Key (Required)
     const primaryKey = process.env.GEMINI_API_KEY;
     if (!primaryKey) throw new Error("GEMINI_API_KEY is missing");
     
     this.primaryAI = new GoogleGenerativeAI(primaryKey);
-    this.primaryModel = this.primaryAI.getGenerativeModel({ model: "gemini-2.0-flash-lite-001" });
+    this.primaryModel = this.primaryAI.getGenerativeModel({ model: "gemini-3-flash-preview" });
 
-    // Backup API Key (Optional)
     const backupKey = process.env.GEMINI_API_KEY_BACKUP;
     if (backupKey) {
       console.log("✅ Backup Gemini API configured");
       this.backupAI = new GoogleGenerativeAI(backupKey);
-      this.backupModel = this.backupAI.getGenerativeModel({ model: "gemini-2.0-flash-lite-001" });
+      this.backupModel = this.backupAI.getGenerativeModel({ model: "gemini-2.5-pro" });
     } else {
       console.warn("⚠️ No backup API key configured. Fallback disabled.");
     }
   }
 
-  /**
-   * Execute a request with automatic fallback to backup API if primary times out
-   */
   private async callWithFallback<T>(
     operation: (model: any) => Promise<T>,
     operationName: string
   ): Promise<T> {
     try {
-      // Try primary API with timeout
       console.log(`🔵 Calling primary Gemini API for ${operationName}...`);
       const result = await this.withTimeout(
         operation(this.primaryModel),
@@ -46,13 +40,11 @@ export class GeminiService {
     } catch (primaryError: any) {
       console.error(`❌ Primary API failed for ${operationName}:`, primaryError.message);
 
-      // If no backup configured, throw original error
       if (!this.backupModel) {
         console.error("❌ No backup API available. Failing.");
         throw primaryError;
       }
 
-      // Try backup API
       try {
         console.log(`🟡 Trying backup Gemini API for ${operationName}...`);
         const result = await this.withTimeout(
@@ -64,15 +56,11 @@ export class GeminiService {
         return result;
       } catch (backupError: any) {
         console.error(`❌ Backup API also failed for ${operationName}:`, backupError.message);
-        // Both failed - throw the backup error
         throw backupError;
       }
     }
   }
 
-  /**
-   * Wrapper to add timeout to any promise
-   */
   private withTimeout<T>(promise: Promise<T>, timeoutMs: number, errorMessage: string): Promise<T> {
     return Promise.race([
       promise,
@@ -189,12 +177,10 @@ export class GeminiService {
 
   private cleanAndParseJSON(text: string): any {
     try {
-      // Remove markdown code blocks if present
       const clean = text.replace(/```json/g, '').replace(/```/g, '').trim();
       return JSON.parse(clean);
     } catch (error) {
         console.error("JSON Parse Error. Raw text:", text);
-        // Fallback or re-throw
         throw new Error("Falha ao processar resposta da IA");
     }
   }
