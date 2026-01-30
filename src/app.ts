@@ -8,7 +8,15 @@ import { analyzeDeck, analyzeCard } from './controllers/aiController';
 
 const app = express();
 
-app.use(cors());
+// CORS Configuration - Allow frontend domains
+app.use(cors({
+  origin: [
+    'https://handtrap.vercel.app',
+    'http://localhost:5173',
+    'http://localhost:3000'
+  ],
+  credentials: true
+}));
 app.use(express.json());
 
 app.get('/', (req, res) => {
