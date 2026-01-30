@@ -12,7 +12,8 @@ const app = express();
 // Improved CORS configuration
 const allowedOrigins = [
   'https://handtrap.vercel.app',
-  'https://handtrap.xyz'
+  'https://handtrap.xyz',
+  'https://www.handtrap.xyz'  // Added www subdomain
 ];
 
 // Allow localhost only in development
