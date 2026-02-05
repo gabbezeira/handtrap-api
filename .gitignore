@@ -19,3 +19,7 @@ yarn-error.log*
 # Editor
 .vscode/
 .idea/
+
+# Testing
+coverage/
+junit.xml

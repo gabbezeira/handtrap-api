@@ -8,6 +8,7 @@
     "dev": "nodemon src/index.ts",
     "update-database": "node ../update_database.js",
     "download-images": "ts-node src/scripts/downloadImages.ts",
+    "test": "jest",
     "simulate-webhook": "ts-node src/scripts/simulateWebhook.ts"
   },
   "dependencies": {

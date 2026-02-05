@@ -1,0 +1,130 @@
+import { analyzeDeck } from '../controllers/aiController';
+import { GeminiService } from '../services/geminiService';
+import admin from '../config/firebase-admin';
+
+// Mock dependencies
+jest.mock('../services/geminiService');
+
+const mockAnalyzeDeck = jest.fn();
+(GeminiService as jest.Mock).mockImplementation(() => ({
+    analyzeDeck: mockAnalyzeDeck,
+    analyzeCard: jest.fn(),
+    analyzeHand: jest.fn()
+}));
+jest.mock('../config/firebase-admin', () => ({
+    __esModule: true,
+    default: {
+        firestore: () => ({
+            collection: jest.fn(),
+            batch: jest.fn(() => ({
+                set: jest.fn(),
+                update: jest.fn(),
+                commit: jest.fn()
+            })),
+            runTransaction: jest.fn()
+        })
+    }
+}));
+
+// Helper to mock Request/Response
+const mockRequest = (body = {}, user = { uid: 'test-user' }) => ({
+    body,
+    user
+} as any);
+
+const mockResponse = () => {
+    const res: any = {};
+    res.status = jest.fn().mockReturnValue(res);
+    res.json = jest.fn().mockReturnValue(res);
+    return res;
+};
+
+describe('AI Controller - analyzeDeck', () => {
+    let mockDb: any;
+    
+    beforeEach(() => {
+        jest.clearAllMocks();
+        console.log('Admin Import:', admin);
+        mockDb = admin.firestore();
+        console.log('MockDB:', mockDb);
+    });
+
+    it('should return cache hit if analysis exists and forceRefresh is false', async () => {
+        const req = mockRequest({ 
+            deckList: ['Card A'], 
+            cardIds: [1], 
+            forceRefresh: false 
+        });
+        const res = mockResponse();
+
+        // Mock Firestore Get for Cache
+        const mockGet = jest.fn().mockResolvedValue({
+            exists: true,
+            data: () => ({ analysis: 'cached result' })
+        });
+        
+        mockDb.collection.mockReturnValue({
+            doc: jest.fn().mockReturnValue({ get: mockGet })
+        });
+
+        await analyzeDeck(req, res);
+
+        expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
+            analysis: 'cached result',
+            source: 'cache'
+        }));
+    });
+
+    it('should call GeminiService if cache misses (fresh generation)', async () => {
+        const req = mockRequest({ 
+            deckList: ['Card A'], 
+            cardIds: [1], 
+            forceRefresh: true 
+        });
+        const res = mockResponse();
+
+        // 1. Mock Cache Miss
+        const mockDoc = jest.fn().mockReturnValue({
+             get: jest.fn().mockResolvedValue({ exists: false }) 
+        });
+        
+        // 2. Mock User Context (Plan & Usage)
+        const mockUserGet = jest.fn().mockResolvedValue({
+            data: () => ({ subscription: { status: 'active', plan: 'free' } })
+        });
+
+        // 3. Mock Usage Check
+        const mockUsageGet = jest.fn().mockResolvedValue({
+            exists: true,
+            data: () => ({ count: 0, date: new Date().toISOString().split('T')[0] })
+        });
+
+        mockDb.collection.mockImplementation((name: string) => {
+            if (name === 'deck_analyses') return mockDoc();
+            if (name === 'users') return {
+                doc: jest.fn().mockReturnValue({
+                     get: mockUserGet,
+                     collection: jest.fn().mockReturnValue({
+                         doc: jest.fn().mockReturnValue({ get: mockUsageGet })
+                     })
+                })
+            };
+            return { doc: jest.fn() };
+        });
+
+        // 4. Mock Gemini Service
+        mockAnalyzeDeck.mockResolvedValue({
+            metaScore: { poderOfensivo: 8 },
+            analiseGeral: 'Good Deck'
+        });
+
+        await analyzeDeck(req, res);
+
+        const mockInstance = (GeminiService as jest.Mock).mock.instances[0];
+        expect(mockInstance.analyzeDeck).toHaveBeenCalledWith(['Card A'], 'free');
+        expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
+            metaScore: { poderOfensivo: 8 },
+            source: 'fresh'
+        }));
+    });
+});
