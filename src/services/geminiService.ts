@@ -2,7 +2,7 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import { logger } from "../utils/logger";
 import { db } from "../config/firebase-admin";
 
-// Token pricing per 1M tokens (USD)
+
 const TOKEN_PRICES = {
   'gemini-2.5-pro': { input: 1.25, output: 10.00 },
   'gemini-2.5-flash': { input: 0.30, output: 2.50 }
@@ -183,7 +183,7 @@ export class GeminiService {
 			});
 			const response = result.response;
 			
-			// Log token usage
+
 			const usage = response.usageMetadata;
 			if (usage) {
 				this.logApiUsage(modelName, usage.promptTokenCount || 0, usage.candidatesTokenCount || 0, 'analyzeDeck');
@@ -213,7 +213,7 @@ export class GeminiService {
 			});
 			const response = result.response;
 			
-			// Log token usage
+
 			const usage = response.usageMetadata;
 			if (usage) {
 				this.logApiUsage(modelName, usage.promptTokenCount || 0, usage.candidatesTokenCount || 0, 'analyzeCard');
@@ -248,7 +248,7 @@ export class GeminiService {
 			});
 			const response = result.response;
 			
-			// Log token usage
+
 			const usage = response.usageMetadata;
 			if (usage) {
 				this.logApiUsage(modelName, usage.promptTokenCount || 0, usage.candidatesTokenCount || 0, 'analyzeHand');

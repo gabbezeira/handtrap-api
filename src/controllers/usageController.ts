@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import { db } from '../config/firebase-admin';
 import { logger } from '../utils/logger';
 
-// Token pricing per 1M tokens (USD)
+
 const TOKEN_PRICES = {
   'gemini-2.5-pro': { input: 1.25, output: 10.00 },
   'gemini-2.5-flash': { input: 0.30, output: 2.50 }
@@ -55,7 +55,7 @@ export const getApiUsageStats = async (req: Request, res: Response) => {
       stats.totalOutputTokens += outputTokens;
       stats.totalCalls++;
       
-      // By operation
+
       if (!stats.byOperation[operation]) {
         stats.byOperation[operation] = { calls: 0, cost: 0, tokens: 0 };
       }
@@ -63,7 +63,7 @@ export const getApiUsageStats = async (req: Request, res: Response) => {
       stats.byOperation[operation].cost += cost;
       stats.byOperation[operation].tokens += inputTokens + outputTokens;
       
-      // By model
+
       if (!stats.byModel[model]) {
         stats.byModel[model] = { calls: 0, cost: 0, tokens: 0 };
       }

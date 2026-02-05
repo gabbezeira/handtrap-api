@@ -38,7 +38,7 @@ const allowedOrigins = [
   'https://www.handtrap.xyz'
 ];
 
-// Allow localhost only in development
+
 if (!isProduction) {
   allowedOrigins.push('http://localhost:5173');
   allowedOrigins.push('http://localhost:3000');
@@ -112,7 +112,7 @@ app.post('/api/feedback/analysis',
   submitAnalysisFeedback
 );
 
-// Stripe Checkout
+
 app.post('/api/create-checkout-session',
   authMiddleware,
   createCheckoutSession
@@ -134,7 +134,7 @@ app.get('/api/admin/usage',
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
   console.error('Unhandled error:', err);
   
-  // CORS errors
+
   if (err.message === 'Not allowed by CORS') {
     return res.status(403).json({ 
       error: 'Forbidden', 
@@ -142,7 +142,7 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
     });
   }
   
-  // Generic error response
+
   res.status(err.status || 500).json({
     error: 'Internal Server Error',
     message: isProduction ? 'An unexpected error occurred' : err.message

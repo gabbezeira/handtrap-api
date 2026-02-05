@@ -1,6 +1,5 @@
 import { z } from 'zod';
 
-// Schema for deck analysis request
 export const analyzeDeckSchema = z.object({
   deckList: z.array(z.string().min(1).max(100))
     .min(1, 'Deck list cannot be empty')
@@ -11,7 +10,7 @@ export const analyzeDeckSchema = z.object({
   forceRefresh: z.boolean().optional().default(false)
 });
 
-// Schema for card analysis request
+
 export const analyzeCardSchema = z.object({
   cardName: z.string()
     .min(1, 'Card name is required')
@@ -29,7 +28,7 @@ export const analyzeHandSchema = z.object({
     .max(80, 'Deck list cannot exceed 80 cards')
 });
 
-// Schema for feedback submission
+
 export const feedbackSchema = z.object({
   deckHash: z.string()
     .min(10, 'Invalid deck hash')
