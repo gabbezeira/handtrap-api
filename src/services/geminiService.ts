@@ -131,7 +131,7 @@ export class GeminiService {
 	async analyzeDeck(deckList: string[], plan: 'free' | 'premium' = 'free') {
 		const prompt = `
     CONTEXTO: Você é um especialista em Yu-Gi-Oh! Master Duel (formato Best of 1, Fevereiro 2026).
-    
+    LINGUA: Português-BR
     TAREFA: Analise a lista de deck fornecida e forneça uma avaliação técnica e construtiva.
     
     LISTA DO DECK:
@@ -195,6 +195,7 @@ export class GeminiService {
 
 	async analyzeCard(cardName: string, plan: 'free' | 'premium' = 'free') {
 		const prompt = `Analise a carta "${cardName}" no contexto do meta atual de Yu-Gi-Oh! Master Duel.
+				LINGUA: Português-BR
         Responda APENAS JSON:
         {
           "summary": "Resumo curto e direto sobre a utilidade da carta.",
@@ -227,7 +228,7 @@ export class GeminiService {
 		const prompt = `
         Analise esta mão inicial de 5 cartas: ${handCards.join(", ")}.
         Deck Base: ${deckList.slice(0, 10).join(", ")}... (resumo do deck).
-        
+				LINGUA: Português-BR
         Responda APENAS JSON:
         {
             "score": (0-10 de qualidade da mão),
