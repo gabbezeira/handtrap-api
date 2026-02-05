@@ -19,7 +19,7 @@ interface TokenUsage {
 export class GeminiService {
 	private primaryAI: GoogleGenerativeAI;
 	private backupAI: GoogleGenerativeAI | null = null;
-	private readonly TIMEOUT_MS = 60000;
+	private readonly TIMEOUT_MS = 120000;
 
 	constructor() {
 		const primaryKey = process.env.GEMINI_API_KEY;
