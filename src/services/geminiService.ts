@@ -1,10 +1,24 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import { logger } from "../utils/logger";
+import { db } from "../config/firebase-admin";
+
+// Token pricing per 1M tokens (USD)
+const TOKEN_PRICES = {
+  'gemini-2.5-pro': { input: 1.25, output: 10.00 },
+  'gemini-2.5-flash': { input: 0.30, output: 2.50 }
+};
+
+interface TokenUsage {
+  model: string;
+  inputTokens: number;
+  outputTokens: number;
+  totalTokens: number;
+  estimatedCost: number;
+}
 
 export class GeminiService {
 	private primaryAI: GoogleGenerativeAI;
 	private backupAI: GoogleGenerativeAI | null = null;
-	private primaryModel: any;
-	private backupModel: any | null = null;
 	private readonly TIMEOUT_MS = 60000;
 
 	constructor() {
@@ -12,60 +26,90 @@ export class GeminiService {
 		if (!primaryKey) throw new Error("GEMINI_API_KEY is missing");
 
 		this.primaryAI = new GoogleGenerativeAI(primaryKey);
-		this.primaryModel = this.primaryAI.getGenerativeModel({
-			model: "gemini-3-pro-preview",
-		});
 
 		const backupKey = process.env.GEMINI_API_KEY_BACKUP;
 		if (backupKey) {
-			console.log("✅ Backup Gemini API configured");
+			logger.info('Backup Gemini API configured');
 			this.backupAI = new GoogleGenerativeAI(backupKey);
-			this.backupModel = this.backupAI.getGenerativeModel({
-				model: "gemini-3-pro-preview",
-			});
 		} else {
-			console.warn("⚠️ No backup API key configured. Fallback disabled.");
+			logger.warn('No backup API key configured. Fallback disabled.');
 		}
 	}
 
+    private getModel(plan: 'free' | 'premium', client: GoogleGenerativeAI) {
+        // Strategy: 
+        // Free -> Flash 2.5 (High Speed, Low Cost)
+        // Premium -> Pro 2.5 (High Reasoning)
+        const modelName = plan === 'premium' ? 'gemini-2.5-pro' : 'gemini-2.5-flash';
+        return { model: client.getGenerativeModel({ model: modelName }), modelName };
+    }
+
+    private async logApiUsage(
+        model: string,
+        inputTokens: number,
+        outputTokens: number,
+        operation: string
+    ) {
+        try {
+            const prices = TOKEN_PRICES[model as keyof typeof TOKEN_PRICES] || TOKEN_PRICES['gemini-2.5-flash'];
+            const inputCost = (inputTokens / 1_000_000) * prices.input;
+            const outputCost = (outputTokens / 1_000_000) * prices.output;
+            const totalCost = inputCost + outputCost;
+
+            await db.collection('api_usage').add({
+                timestamp: new Date(),
+                model,
+                operation,
+                inputTokens,
+                outputTokens,
+                totalTokens: inputTokens + outputTokens,
+                estimatedCostUSD: totalCost
+            });
+
+            logger.info('API usage logged', { 
+                operation, 
+                metadata: { model, tokens: inputTokens + outputTokens, cost: `$${totalCost.toFixed(6)}` }
+            });
+        } catch (error) {
+            logger.error('Failed to log API usage', error);
+        }
+    }
+
 	private async callWithFallback<T>(
-		operation: (model: any) => Promise<T>,
+		operation: (model: any, modelName: string) => Promise<T>,
 		operationName: string,
+        plan: 'free' | 'premium'
 	): Promise<T> {
 		try {
-			console.log(`🔵 Calling primary Gemini API for ${operationName}...`);
-			const result = await this.withTimeout(
-				operation(this.primaryModel),
+            const { model: primaryModel, modelName } = this.getModel(plan, this.primaryAI);
+			const startTime = Date.now();
+            const result = await this.withTimeout(
+				operation(primaryModel, modelName),
 				this.TIMEOUT_MS,
 				`Primary API timeout for ${operationName}`,
 			);
-			console.log(`✅ Primary API succeeded for ${operationName}`);
+			logger.perf('Gemini API call completed', { operation: operationName, duration: Date.now() - startTime });
 			return result;
 		} catch (primaryError: any) {
-			console.error(
-				`❌ Primary API failed for ${operationName}:`,
-				primaryError.message,
-			);
+			logger.error(`Primary API failed for ${operationName}`, primaryError);
 
-			if (!this.backupModel) {
-				console.error("❌ No backup API available. Failing.");
+			if (!this.backupAI) {
+				logger.error('No backup API available');
 				throw primaryError;
 			}
 
 			try {
-				console.log(`🟡 Trying backup Gemini API for ${operationName}...`);
+				logger.info('Trying backup Gemini API', { operation: operationName });
+                const { model: backupModel, modelName } = this.getModel(plan, this.backupAI);
 				const result = await this.withTimeout(
-					operation(this.backupModel),
+					operation(backupModel, modelName),
 					this.TIMEOUT_MS,
 					`Backup API timeout for ${operationName}`,
 				);
-				console.log(`✅ Backup API succeeded for ${operationName}`);
+				logger.perf('Backup API succeeded', { operation: operationName });
 				return result;
 			} catch (backupError: any) {
-				console.error(
-					`❌ Backup API also failed for ${operationName}:`,
-					backupError.message,
-				);
+				logger.error(`Backup API also failed for ${operationName}`, backupError);
 				throw backupError;
 			}
 		}
@@ -84,121 +128,133 @@ export class GeminiService {
 		]);
 	}
 
-	async analyzeDeck(deckList: string[]) {
+	async analyzeDeck(deckList: string[], plan: 'free' | 'premium' = 'free') {
 		const prompt = `
-    ATUE COMO: Um Campeão Mundial de Yu-Gi-Oh! Master Duel e Juiz Oficial (Judge).
-    CONTEXTO: Formato Master Duel (Best of 1). Banlist atualizada.
+    CONTEXTO: Você é um especialista em Yu-Gi-Oh! Master Duel (formato Best of 1, Fevereiro 2026).
     
-    TAREFA: Analise profundamente a lista de deck fornecida (Main Deck + Extra Deck).
+    TAREFA: Analise a lista de deck fornecida e forneça uma avaliação técnica e construtiva.
     
-    LISTA DO DECK (Total de Cartas na lista abaixo):
+    LISTA DO DECK:
     ${deckList.join(", ")}
-
-    DIRETRIZES DE ANÁLISE:
-    1. SEJA RUTHLESS (IMPLACÁVEL): Compare este deck com os Tier 0/1 atuais (Maliss, Tenpai Dragon, Snake-Eye, Yubel). Se o deck for fraco contra eles, DÊ NOTA BAIXA. Não seja gentil.
-    2. SINERGIA TOTAL: Analise como o Main Deck alimenta o Extra Deck.
-    3. COMBOS REAIS: Descreva combos que são legalmente possíveis.
-    4. CUSTO/BENEFÍCIO: Identifique "Garnets" e cartas sub-otimizadas.
-
-    FORMATO DE RESPOSTA OBRIGATÓRIO (JSON ESTRITO - SEM MARKDOWN):
+    
+    REGRAS IMPORTANTES:
+    1. NÃO mencione banlist, cartas proibidas ou limitadas. Ignore completamente a banlist.
+    2. RESPEITE as quantidades exatas de cartas informadas na lista. Se a lista diz "3x Blue-Eyes", são 3 cópias.
+    3. Seja específico e construtivo. Evite críticas genéricas como "remova tudo".
+    4. FOCO: Consistência, Power Ceiling, Resiliência a Hand Traps e Capacidade de Going Second.
+    
+    FORMATO DE RESPOSTA (JSON):
+    Responda APENAS com um objeto JSON válido. Não use Markdown ou blocos de código.
     {
       "metaScore": {
-        "poderOfensivo": 0-10,
-        "consistencia": 0-10,
-        "resiliencia": 0-10,
-        "controle": 0-10
+        "poderOfensivo": (1-10),
+        "consistencia": (1-10),
+        "resiliencia": (1-10),
+        "controle": (1-10)
       },
-      "arquetipo": "Nome do Arquétipo",
-      "analiseGeral": "Resumo técnico de 2 parágrafos.",
-      "matchups": [
-        {
-          "deckName": "Maliss",
-          "winRate": 0-100,
-          "estrategia": "Como vencer ou por que perde (ex: Sofre para Dimension Shifter)."
-        },
-        {
-          "deckName": "Tenpai Dragon",
-          "winRate": 0-100,
-          "estrategia": "Dica de side deck ou jogada específica."
-        },
-        {
-          "deckName": "Snake-Eye / Fire King",
-          "winRate": 0-100,
-          "estrategia": "Pontos fracos da match."
-        }
-      ],
+      "arquetipo": "Nome do Arquétipo / Estratégia Principal",
+      "analiseGeral": "Resumo detalhado (3-4 parágrafos) sobre como o deck funciona, pontos fortes e fracos.",
       "pontosFortes": ["ponto 1", "ponto 2", "ponto 3"],
-      "pontosFracos": ["fraqueza 1", "fraqueza 2", "fraqueza 3"],
+      "pontosFracos": ["ponto 1", "ponto 2", "ponto 3"],
       "combosChave": [
-        {
-          "nome": "Combo de 1 Carta",
-          "passos": ["1. ...", "2. ..."]
-        },
-        {
-           "nome": "Interação de Extra Deck",
-           "passos": ["..."]
-        }
+        { "nome": "Combo 1 Card", "passos": ["Normal Summon X", "Search Y", "Special Z"] }
       ],
       "planoDeJogo": {
-        "turno1": "Setup ideal.",
-        "turno2": "Como quebrar board."
+        "turno1": "O que fazer indo primeiro",
+        "turno2": "O que fazer indo segundo (board breaker)"
       },
       "sugestoesMelhoria": [
-        {
-          "carta": "Nome da Carta",
-          "acao": "Adicionar",
-          "qtd": 1,
-          "motivo": "Motivo técnico baseado no meta."
-        },
-        {
-          "carta": "Nome da Carta",
-          "acao": "Remover",
-          "qtd": 1,
-          "motivo": "Motivo."
-        }
+        { "carta": "Nome da Carta", "acao": "Adicionar" | "Remover", "qtd": 1, "motivo": "Explicação" }
+      ],
+      "matchups": [
+           { "deckName": "Snake-Eye", "winRate": 40, "estrategia": "Dica contra esse deck" },
+           { "deckName": "Fire King", "winRate": 50, "estrategia": "Dica contra esse deck" }
       ]
-    }
-    `;
+    }`;
 
-		const result = await this.callWithFallback(
-			async (model) => await model.generateContent(prompt),
-			"analyzeDeck",
-		);
-
-		return this.cleanAndParseJSON(result.response.text());
+		return this.callWithFallback(async (model, modelName) => {
+			const result = await model.generateContent({
+				contents: [{ parts: [{ text: prompt }] }],
+				generationConfig: {
+					temperature: 0.7,
+					maxOutputTokens: 8192,
+					responseMimeType: "application/json",
+				},
+			});
+			const response = result.response;
+			
+			// Log token usage
+			const usage = response.usageMetadata;
+			if (usage) {
+				this.logApiUsage(modelName, usage.promptTokenCount || 0, usage.candidatesTokenCount || 0, 'analyzeDeck');
+			}
+			
+			return JSON.parse(response.text());
+		}, "analyzeDeck", plan);
 	}
 
-	async analyzeCard(cardName: string) {
+	async analyzeCard(cardName: string, plan: 'free' | 'premium' = 'free') {
+		const prompt = `Analise a carta "${cardName}" no contexto do meta atual de Yu-Gi-Oh! Master Duel.
+        Responda APENAS JSON:
+        {
+          "summary": "Resumo curto e direto sobre a utilidade da carta.",
+          "usage_moments": ["Situação 1", "Situação 2"]
+        }`;
+
+        // HYBRID COST MODEL: Always use 'free' (Flash) for card analysis as it's simple
+        // Premium users still get higher limits, but use the cheaper model here.
+		return this.callWithFallback(async (model, modelName) => {
+			const result = await model.generateContent({
+				contents: [{ parts: [{ text: prompt }] }],
+				generationConfig: {
+                    temperature: 0.7,
+                    responseMimeType: "application/json"
+                },
+			});
+			const response = result.response;
+			
+			// Log token usage
+			const usage = response.usageMetadata;
+			if (usage) {
+				this.logApiUsage(modelName, usage.promptTokenCount || 0, usage.candidatesTokenCount || 0, 'analyzeCard');
+			}
+			
+			return JSON.parse(response.text());
+		}, "analyzeCard", 'free');
+	}
+
+	async analyzeHand(handCards: string[], deckList: string[], plan: 'free' | 'premium' = 'free') {
 		const prompt = `
-    Como campeão mundial de Yu-Gi-Oh, analise a carta "${cardName}".
-    Retorne APENAS JSON válido:
-    {
-      "summary": "Resumo estratégico de 2 linhas sobre a carta.",
-      "usage_moments": [
-        "Melhor momento para ativar",
-        "Interação específica com meta decks"
-      ]
-    }
-    `;
+        Analise esta mão inicial de 5 cartas: ${handCards.join(", ")}.
+        Deck Base: ${deckList.slice(0, 10).join(", ")}... (resumo do deck).
+        
+        Responda APENAS JSON:
+        {
+            "score": (0-10 de qualidade da mão),
+            "strategy_going_first": "Passo a passo detalhado indo primeiro.",
+            "strategy_going_second": "Passo a passo detalhado indo segundo.",
+            "key_combos": ["Combo principal possível com essa mão"],
+            "bricks": ["Cartas mortas na mão se houver"]
+        }`;
 
-		const result = await this.callWithFallback(
-			async (model) => await model.generateContent(prompt),
-			"analyzeCard",
-		);
-
-		return this.cleanAndParseJSON(result.response.text());
-	}
-
-	private cleanAndParseJSON(text: string): any {
-		try {
-			const clean = text
-				.replace(/```json/g, "")
-				.replace(/```/g, "")
-				.trim();
-			return JSON.parse(clean);
-		} catch (_error) {
-			console.error("JSON Parse Error. Raw text:", text);
-			throw new Error("Falha ao processar resposta da IA");
-		}
+        // HYBRID COST MODEL: Always use 'free' (Flash) for hand analysis
+		return this.callWithFallback(async (model, modelName) => {
+			const result = await model.generateContent({
+				contents: [{ parts: [{ text: prompt }] }],
+				generationConfig: {
+                    temperature: 0.7,
+                    responseMimeType: "application/json"
+                },
+			});
+			const response = result.response;
+			
+			// Log token usage
+			const usage = response.usageMetadata;
+			if (usage) {
+				this.logApiUsage(modelName, usage.promptTokenCount || 0, usage.candidatesTokenCount || 0, 'analyzeHand');
+			}
+			
+			return JSON.parse(response.text());
+		}, "analyzeHand", 'free');
 	}
 }
