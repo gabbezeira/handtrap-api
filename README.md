@@ -1,209 +1,229 @@
 # 🚀 Handtrap API - Backend
 
-> **Motor de análise de IA para o melhor Deck Builder de Yu-Gi-Oh!**  
-> Backend robusto e seguro com Google Gemini AI.
+<div align="center">
 
-Status: 🚀 **Em Produção**  
-🌐 **API Online**: [api.handtrap.xyz](https://api.handtrap.xyz)  
-🎮 **Frontend**: [handtrap.xyz](https://handtrap.xyz) | [Repositório Frontend](https://github.com/gabbezeira/handtrap)
+![Handtrap API](https://img.shields.io/badge/Handtrap-API-6366f1?style=for-the-badge&logo=express&logoColor=white)
+[![Status](https://img.shields.io/badge/Status-Production-10b981?style=for-the-badge)]()
+[![Node.js](https://img.shields.io/badge/Node.js-18+-339933?style=for-the-badge&logo=node.js&logoColor=white)]()
 
----
+**Motor de análise de IA para o melhor Deck Builder de Yu-Gi-Oh!**
 
-## 📖 Sobre o Projeto
+[🌐 API](https://api.handtrap.xyz) · [🎮 Frontend](https://handtrap.xyz) · [📦 Frontend Repo](https://github.com/gabbezeira/handtrap)
 
-Este é o backend da aplicação **Handtrap**, responsável por fornecer análises táticas de decks e cartas de Yu-Gi-Oh! usando inteligência artificial (Google Gemini). 
-
-O backend foi projetado com **segurança first**, implementando autenticação Firebase, rate limiting e CORS restrito para proteger contra abuso de API.
+</div>
 
 ---
 
-## ✨ Funcionalidades Principais
+## 📖 Sobre
 
-- **🤖 Análise de Deck com IA**: Recebe listas de cards e retorna análise completa com pontos fortes, fracos, consistência e sugestões
-- **🃏 Análise Individual de Carta**: Análise detalhada de cartas específicas com momentos de uso e estratégias
-- **🔒 Autenticação Firebase**: Apenas usuários autenticados podem acessar endpoints de IA
-- **⚡ Rate Limiting**: Proteção contra abuso (5 análises deck/min, 10 cartas/min)
-- **🌐 CORS Restrito**: Whitelist de origens permitidas
-- **📝 Logging Completo**: Rastreamento de todas as requisições
+Backend robusto e seguro para a aplicação **Handtrap**, fornecendo análises táticas de decks e cartas usando **Google Gemini AI**. Inclui sistema de pagamentos com Stripe e autenticação Firebase.
 
 ---
 
-## 🛠️ Tech Stack
+## ✨ Features
 
-- **Runtime**: [Node.js](https://nodejs.org/) v18+
-- **Framework**: [Express](https://expressjs.com/)
-- **Language**: [TypeScript](https://www.typescriptlang.org/)
-- **IA**: [Google Gemini API](https://ai.google.dev/)
-- **Auth**: [Firebase Admin SDK](https://firebase.google.com/docs/admin/setup)
-- **Security**: [express-rate-limit](https://github.com/express-rate-limit/express-rate-limit)
+| Feature | Descrição |
+|---------|-----------|
+| 🤖 **Análise de Deck** | Pontos fortes, fracos, consistência e sugestões |
+| 🃏 **Análise de Carta** | Análise individual com momentos de uso |
+| 🎲 **Análise de Mão** | Avaliação de mão inicial com estratégias |
+| 💳 **Stripe Payments** | Checkout, webhooks, billing portal |
+| 🔒 **Auth Firebase** | Tokens JWT validados via Admin SDK |
+| ⚡ **Rate Limiting** | Proteção contra abuso |
+| 📊 **Cost Tracking** | Monitoramento de custos da API Gemini |
 
 ---
 
-## 🔌 Endpoints Disponíveis
+## 🔌 API Endpoints
 
-| Endpoint | Método | Auth Required | Descrição |
-|----------|--------|---------------|-----------|
-| `/` | GET | ❌ | Status do servidor |
+| Endpoint | Método | Auth | Descrição |
+|----------|--------|:----:|-----------|
 | `/api/health` | GET | ❌ | Health check |
-| `/analyze` | POST | ✅ | Análise completa de deck |
-| `/analyze-card` | POST | ✅ | Análise individual de carta |
+| `/api/analyze` | POST | ✅ | Análise de deck |
+| `/api/analyze-card` | POST | ✅ | Análise de carta |
+| `/api/analyze-hand` | POST | ✅ | Análise de mão |
+| `/api/feedback/analysis` | POST | ✅ | Enviar feedback |
+| `/api/create-checkout-session` | POST | ✅ | Checkout Stripe |
+| `/api/billing-portal` | POST | ✅ | Portal de cobrança |
+| `/api/webhook` | POST | ❌ | Webhook Stripe |
+| `/api/admin/usage` | GET | ✅ | Estatísticas de uso |
 
 ### Exemplo de Requisição
 
-**Análise de Deck:**
 ```bash
-curl -X POST https://api.handtrap.xyz/analyze \
+curl -X POST https://api.handtrap.xyz/api/analyze \
   -H "Content-Type: application/json" \
-  -H "Authorization: Bearer YOUR_FIREBASE_TOKEN" \
+  -H "Authorization: Bearer FIREBASE_TOKEN" \
   -d '{
-    "deckList": [
-      "3x Ash Blossom & Joyous Spring",
-      "2x Effect Veiler",
-      "3x Snake-Eye Ash"
-    ]
+    "deckList": ["Ash Blossom & Joyous Spring", "Effect Veiler", "Snake-Eye Ash"],
+    "cardIds": [14558127, 950951, 123456],
+    "forceRefresh": false
   }'
 ```
 
 ---
 
-## 🚀 Como Executar Localmente
+## 🛠️ Tech Stack
+
+| Tecnologia | Uso |
+|------------|-----|
+| Node.js 18+ | Runtime |
+| Express.js | Framework |
+| TypeScript | Linguagem |
+| Google Gemini | AI (Flash 2.5 / Pro 2.5) |
+| Firebase Admin | Autenticação |
+| Stripe | Pagamentos |
+| Firestore | Database |
+
+---
+
+## 🚀 Execução Local
 
 ### Pré-requisitos
 
 - Node.js v18+
-- Conta Firebase (para autenticação)
+- Conta Firebase (Admin SDK)
 - Google Gemini API Key
+- Stripe Account (opcional)
 
 ### Instalação
 
-1. **Clone o repositório**
-   ```bash
-   git clone https://github.com/gabbezeira/handtrap-api.git
-   cd handtrap-api
-   ```
+```bash
+# Clone
+git clone https://github.com/gabbezeira/handtrap-api.git
+cd handtrap-api
 
-2. **Instale as dependências**
-   ```bash
-   npm install
-   ```
+# Instale dependências
+npm install
 
-3. **Configure as Variáveis de Ambiente**
-   
-   Crie um arquivo `.env` na raiz do projeto (veja `.env.example`):
-   
-   ```env
-   # Firebase Admin SDK (Obrigatório)
-   FIREBASE_PROJECT_ID=seu_project_id
-   FIREBASE_CLIENT_EMAIL=firebase-adminsdk-xxxxx@seu-project.iam.gserviceaccount.com
-   FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\nSua chave aqui\n-----END PRIVATE KEY-----\n"
-   
-   # Google Gemini API
-   GEMINI_API_KEY=sua_chave_primaria
-   GEMINI_API_KEY_BACKUP=sua_chave_backup  # Opcional
-   
-   # Configuração
-   PORT=3000
-   NODE_ENV=development
-   ```
+# Configure variáveis
+cp .env.example .env
 
-4. **Obtenha as Credenciais Firebase Admin**
-   
-   - Acesse [Firebase Console](https://console.firebase.google.com)
-   - Vá em **Project Settings** > **Service Accounts**
-   - Clique em **Generate New Private Key**
-   - Extraia `project_id`, `client_email` e `private_key` do JSON baixado
+# Execute
+npm run dev
+```
 
-5. **Execute o servidor**
-   ```bash
-   npm run dev
-   ```
-   
-   O servidor estará disponível em `http://localhost:3000`
+### Variáveis de Ambiente
+
+```env
+# Firebase Admin SDK
+FIREBASE_PROJECT_ID=seu_project_id
+FIREBASE_CLIENT_EMAIL=firebase-adminsdk@projeto.iam.gserviceaccount.com
+FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
+
+# Google Gemini
+GEMINI_API_KEY=sua_chave_primaria
+GEMINI_API_KEY_BACKUP=sua_chave_backup  # Fallback
+
+# Stripe
+STRIPE_SECRET_KEY=sk_live_xxx
+STRIPE_WEBHOOK_SECRET=whsec_xxx
+STRIPE_PRICE_ID=price_xxx
+
+# Config
+PORT=3000
+NODE_ENV=production
+```
 
 ---
 
 ## 🔒 Segurança
 
-Este backend implementa múltiplas camadas de segurança:
-
-### Autenticação
-- ✅ Firebase Admin SDK valida tokens JWT
-- ✅ Apenas usuários logados acessam endpoints de IA
-- ✅ Tokens expirados/inválidos retornam 401
-
-### Rate Limiting
-- ✅ **Deck Analysis**: 5 requisições/minuto
-- ✅ **Card Analysis**: 10 requisições/minuto  
-- ✅ **Geral**: 100 requisições/15 minutos
-
-### CORS
-- ✅ Whitelist estrita de origens
-- ✅ Localhost permitido apenas em desenvolvimento
-- ✅ Proteção contra CSRF
+| Camada | Implementação |
+|--------|---------------|
+| **Autenticação** | Firebase JWT validation |
+| **Rate Limiting** | 5 deck/min, 10 card/min, 100 general/15min |
+| **CORS** | Whitelist de origens permitidas |
+| **Helmet** | Headers de segurança HTTP |
+| **Validation** | Zod schemas para body |
 
 ---
 
-## 📁 Estrutura do Projeto
+## 📁 Estrutura
 
 ```
 backend/
 ├── src/
 │   ├── config/
-│   │   └── firebase-admin.ts    # Configuração Firebase Admin
+│   │   └── firebase-admin.ts     # Firebase Admin SDK
 │   ├── controllers/
-│   │   └── aiController.ts      # Lógica dos endpoints de IA
+│   │   ├── aiController.ts       # Endpoints de IA
+│   │   ├── stripeController.ts   # Pagamentos
+│   │   ├── feedbackController.ts # Feedback
+│   │   └── usageController.ts    # Métricas de uso
 │   ├── middleware/
-│   │   ├── auth.ts              # Middleware de autenticação
-│   │   └── rateLimiter.ts       # Rate limiting
+│   │   ├── auth.ts               # Autenticação
+│   │   ├── rateLimiter.ts        # Rate limiting
+│   │   └── validation.ts         # Body validation
 │   ├── services/
-│   │   └── geminiService.ts     # Integração com Gemini API
-│   ├── app.ts                   # Configuração Express
-│   └── index.ts                 # Entry point
-├── .env.example                 # Template de variáveis
+│   │   └── geminiService.ts      # Integração Gemini
+│   ├── utils/
+│   │   ├── logger.ts             # Logging
+│   │   └── validation.ts         # Zod schemas
+│   └── app.ts                    # Express config
+├── .env.example
 ├── package.json
 └── tsconfig.json
 ```
 
 ---
 
-## 🤝 Como Contribuir
+## 💰 Modelo de Custos (Gemini)
 
-Contribuições são bem-vindas! Se você quer ajudar:
+| Modelo | Input (1M tokens) | Output (1M tokens) |
+|--------|------------------:|-------------------:|
+| **Gemini 2.5 Flash** | $0.30 | $2.50 |
+| **Gemini 2.5 Pro** | $1.25 | $10.00 |
 
-1. Faça um **Fork** do projeto
-2. Crie uma **Branch** (`git checkout -b feature/MinhaFeature`)
-3. Faça o **Commit** (`git commit -m 'Adiciona feature X'`)
-4. Faça o **Push** (`git push origin feature/MinhaFeature`)
-5. Abra um **Pull Request**
+> Free users → Flash | Premium users → Pro
 
 ---
 
-## 📦 Scripts Disponíveis
+## 📦 Scripts
 
 ```bash
-npm run dev          # Inicia servidor em desenvolvimento (nodemon)
-npm run start        # Inicia servidor em produção
-npm run update-database  # Atualiza cardDatabase.json (PT/EN híbrido)
+npm run dev              # Desenvolvimento (nodemon)
+npm run start            # Produção
+npm run update-database  # Atualiza cardDatabase.json
 npm run download-images  # Baixa imagens das cartas
 ```
 
 ---
 
-## 🌐 Links Úteis
+## 🌐 Deploy (Vercel)
 
-- **Frontend**: [handtrap.xyz](https://handtrap.xyz)
-- **Repositório Frontend**: [github.com/gabbezeira/handtrap](https://github.com/gabbezeira/handtrap)
-- **API Docs**: [api.handtrap.xyz](https://api.handtrap.xyz)
-- **Google Gemini**: [ai.google.dev](https://ai.google.dev/)
+```bash
+# Instale Vercel CLI
+npm i -g vercel
+
+# Deploy
+vercel --prod
+```
+
+Configure as variáveis de ambiente no dashboard da Vercel.
 
 ---
 
-## 👨‍💻 Créditos
+## 🤝 Contribuição
 
-Desenvolvido com ❤️ e ☕ por **Gabriel Alves** ([@gabbezeira](https://instagram.com/gabbezeira)).
+1. Fork o projeto
+2. Crie sua branch (`git checkout -b feature/NovaFeature`)
+3. Commit suas mudanças (`git commit -m 'Add: feature X'`)
+4. Push (`git push origin feature/NovaFeature`)
+5. Abra um Pull Request
 
 ---
 
-## 📄 Licença
+## 👨‍💻 Autor
 
-Este projeto é Open Source para fins educacionais.
+**Gabriel Alves** - [@gabbezeira](https://instagram.com/gabbezeira)
+
+---
+
+<div align="center">
+
+Made with ❤️ and ☕ for the Yu-Gi-Oh! Community
+
+**[⭐ Star se foi útil!](https://github.com/gabbezeira/handtrap-api)**
+
+</div>
