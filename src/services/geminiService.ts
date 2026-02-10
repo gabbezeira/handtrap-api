@@ -40,7 +40,7 @@ export class GeminiService {
         // Strategy: 
         // Free -> Flash 2.5 (High Speed, Low Cost)
         // Premium -> Pro 2.5 (High Reasoning)
-        const modelName = plan === 'premium' ? 'gemini-2.5-pro' : 'gemini-2.5-flash';
+        const modelName = plan === 'premium' ? 'gemini-3-pro-preview' : 'gemini-2.5-flash';
         return { model: client.getGenerativeModel({ model: modelName }), modelName };
     }
 
@@ -193,7 +193,7 @@ export class GeminiService {
 		}, "analyzeDeck", plan);
 	}
 
-	async analyzeCard(cardName: string, plan: 'free' | 'premium' = 'free') {
+	async analyzeCard(cardName: string, plan: 'free' | 'premium' = 'premium') {
 		const prompt = `Analise a carta "${cardName}" no contexto do meta atual de Yu-Gi-Oh! Master Duel.
 				LINGUA: Português-BR
         Responda APENAS JSON:
